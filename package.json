@@ -16,7 +16,12 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": []
+    "commands": [
+      {
+        "command": "8b-mcp.showStatus",
+        "title": "8b-MCP: Show Status"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
