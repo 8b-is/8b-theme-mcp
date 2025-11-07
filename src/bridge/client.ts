@@ -26,17 +26,24 @@ import {
   BridgeMethodResult,
   BRIDGE_REQUEST_TIMEOUT_MS,
   ConfigurationTarget,
+  isBridgeResponse,
 } from './protocol';
 import type { ColorMap } from '../colors/groups';
 
 /**
  * Pending request tracking structure
  * Stores resolve/reject callbacks and timeout timer for each request
+ *
+ * Race Condition Prevention:
+ * - cancelled flag prevents race between timeout and response handlers
+ * - Both timeout and message handlers check this flag before acting
+ * - First handler to act sets cancelled=true, second handler becomes no-op
  */
 interface PendingRequest<M extends BridgeMethod> {
   resolve: (result: BridgeMethodResult[M]) => void;
   reject: (error: Error) => void;
   timer: NodeJS.Timeout;
+  cancelled: boolean; // Set to true when request is resolved/rejected to prevent double-handling
 }
 
 export class BridgeClient {
@@ -52,15 +59,36 @@ export class BridgeClient {
    *
    * Listens for BridgeResponse messages from the extension host and routes them
    * to the appropriate pending request handler.
+   *
+   * Safety Features:
+   * - Validates incoming messages using isBridgeResponse() type guard
+   * - Checks cancelled flag to prevent race conditions with timeout
+   * - Handles process disconnect to fail fast when parent dies
    */
   private setupIPC(): void {
     // Listen for responses from parent (extension host)
-    process.on('message', (response: BridgeResponse) => {
+    process.on('message', (message: unknown) => {
+      // Validate that this is a properly formatted BridgeResponse
+      if (!isBridgeResponse(message)) {
+        console.error('[BridgeClient] Received invalid message (not a BridgeResponse):', message);
+        return;
+      }
+
+      const response = message as BridgeResponse;
       const pending = this.pendingRequests.get(response.id);
       if (!pending) {
         console.error(`[BridgeClient] No pending request for ID: ${response.id}`);
         return;
       }
+
+      // Check if already cancelled (race with timeout) - first one wins
+      if (pending.cancelled) {
+        console.warn(`[BridgeClient] Response arrived for already-cancelled request: ${response.id}`);
+        return;
+      }
+
+      // Mark as cancelled to prevent timeout handler from firing
+      pending.cancelled = true;
 
       // Clear timeout to prevent spurious timeout errors
       clearTimeout(pending.timer);
@@ -75,6 +103,13 @@ export class BridgeClient {
       // Clean up pending request
       this.pendingRequests.delete(response.id);
     });
+
+    // Handle parent process disconnect - fail fast instead of hanging
+    // This prevents child process from waiting indefinitely when parent dies unexpectedly
+    process.on('disconnect', () => {
+      console.error('[BridgeClient] Parent process disconnected - failing all pending requests');
+      this.cleanup();
+    });
   }
 
   /**
@@ -82,6 +117,19 @@ export class BridgeClient {
    *
    * Type-safe generic method that enforces correct param and result types
    * based on the method being called.
+   *
+   * Race Condition Invariants:
+   * 1. Only ONE of timeout or message handler can resolve/reject (enforced by cancelled flag)
+   * 2. Both handlers check cancelled flag before acting - first one wins
+   * 3. Timeout handler checks pendingRequests.has(id) for extra safety (belt and suspenders)
+   * 4. Message handler sets cancelled=true BEFORE calling resolve/reject
+   * 5. Timeout handler sets cancelled=true BEFORE calling reject
+   *
+   * Error Handling:
+   * - Validates process.send exists before attempting to send
+   * - Wraps process.send in try-catch to handle serialization errors
+   * - Checks return value of process.send (false = channel closed)
+   * - All error paths clean up pending request and timer
    *
    * @param method - Bridge method name (type parameter M enforces correct types)
    * @param params - Method parameters (typed based on BridgeMethodParams[M])
@@ -98,14 +146,23 @@ export class BridgeClient {
     return new Promise((resolve, reject) => {
       // Set up timeout - reject if no response within timeout period
       const timer = setTimeout(() => {
-        if (this.pendingRequests.has(id)) {
-          this.pendingRequests.delete(id);
-          reject(new Error(`Bridge request timeout: ${method} (waited ${timeout}ms)`));
+        const pending = this.pendingRequests.get(id);
+
+        // Double-check request still exists and isn't already cancelled
+        if (!pending || pending.cancelled) {
+          return; // Response already handled - no-op
         }
+
+        // Mark as cancelled to prevent message handler from firing
+        pending.cancelled = true;
+
+        // Clean up and reject
+        this.pendingRequests.delete(id);
+        reject(new Error(`Bridge request timeout: ${method} (waited ${timeout}ms)`));
       }, timeout);
 
-      // Store pending request with typed callbacks
-      this.pendingRequests.set(id, { resolve, reject, timer });
+      // Store pending request with typed callbacks - initialize cancelled to false
+      this.pendingRequests.set(id, { resolve, reject, timer, cancelled: false });
 
       // Create type-safe request using generic BridgeRequest<M>
       const request: BridgeRequest<M> = { id, method, params };
@@ -118,13 +175,20 @@ export class BridgeClient {
         return;
       }
 
-      // Send request to parent process
-      // Note: process.send returns false if message couldn't be sent
-      const sent = process.send(request);
-      if (!sent) {
+      // Send request to parent process with error handling
+      try {
+        // Note: process.send returns false if message couldn't be sent
+        const sent = process.send(request);
+        if (!sent) {
+          clearTimeout(timer);
+          this.pendingRequests.delete(id);
+          reject(new Error('Failed to send IPC message - channel may be closed'));
+        }
+      } catch (error) {
+        // Handle serialization errors or other exceptions from process.send
         clearTimeout(timer);
         this.pendingRequests.delete(id);
-        reject(new Error('Failed to send IPC message - channel may be closed'));
+        reject(new Error(`Exception sending IPC message: ${error instanceof Error ? error.message : String(error)}`));
       }
     });
   }
