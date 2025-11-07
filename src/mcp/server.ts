@@ -32,7 +32,7 @@ export class ThemeMCPServer {
     // Initialize MCP server with metadata
     this.server = new Server(
       {
-        name: '8b-mcp',
+        name: '8b-theme-mcp',
         version: '0.0.1',
       },
       {
@@ -295,6 +295,6 @@ export class ThemeMCPServer {
   async start() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('8b-MCP server started');
+    console.error('8b-Theme-MCP server started');
   }
 }

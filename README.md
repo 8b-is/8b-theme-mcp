@@ -1,4 +1,4 @@
-# 8b-MCP - AI Theme Control
+# 8b Theme MCP - AI Theme Control
 
 AI-controlled dynamic theme manipulation for VSCode via Model Context Protocol (MCP).
 
@@ -58,7 +58,7 @@ Reset all color customizations to theme defaults
 
 ```bash
 # Install the VSIX file
-code --install-extension 8b-mcp-0.0.1.vsix
+code --install-extension 8b-theme-mcp-0.0.1.vsix
 ```
 
 **That's it!** The extension automatically:
@@ -72,8 +72,8 @@ code --install-extension 8b-mcp-0.0.1.vsix
 ### Verify Installation
 
 1. Open Command Palette: `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
-2. Type: `8b-MCP: Show Status`
-3. You should see: "🎨 8b-MCP is running! Your AI assistant can now control your VSCode colors!"
+2. Type: `8b-Theme-MCP: Show Status`
+3. You should see: "🎨 8b-Theme-MCP is running! Your AI assistant can now control your VSCode colors!"
 
 ### Start Using with GitHub Copilot
 
@@ -90,7 +90,7 @@ The MCP server is already registered and ready to go! 🎨
 2. Run `npm install`
 3. Run `npm run compile`
 4. Press F5 to launch Extension Development Host
-5. Test with Command Palette: `8b-MCP: Show Status`
+5. Test with Command Palette: `8b-Theme-MCP: Show Status`
 
 ## Development
 
@@ -121,7 +121,7 @@ Built with modern tooling and best practices:
 ### Project Structure
 
 ```
-8b-mcp/
+8b-theme-mcp/
 ├── src/
 │   ├── extension.ts         # VSCode extension entry point
 │   ├── mcp/

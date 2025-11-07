@@ -1,16 +1,16 @@
-# 8b-MCP Testing Guide
+# 8b Theme MCP Testing Guide
 
-This guide walks you through testing the complete workflow of the 8b-MCP extension.
+This guide walks you through testing the complete workflow of the 8b Theme MCP extension.
 
 ## Prerequisites
 
 - VSCode installed
-- 8b-MCP extension compiled (`npm run compile` completed successfully)
+- 8b Theme MCP extension compiled (`npm run compile` completed successfully)
 - 8b theme extensions installed (for theme switching tests)
 
 ## Step 1: Launch Extension Development Host
 
-1. Open the `8b-mcp` project in VSCode
+1. Open the `8b-theme-mcp` project in VSCode
 2. Press **F5** to launch the Extension Development Host
 3. A new VSCode window will open with the extension loaded
 
@@ -23,13 +23,13 @@ This guide walks you through testing the complete workflow of the 8b-MCP extensi
 1. In the original VSCode window (not the Extension Development Host)
 2. Open the Debug Console (View > Debug Console)
 3. Look for these messages:
-   - `8b-MCP extension is now active`
-   - `8b-MCP server started successfully`
+   - `8b-Theme-MCP extension is now active`
+   - `8b-Theme-MCP server started successfully`
 
 **Expected Result:**
 ```
-8b-MCP extension is now active
-8b-MCP server started successfully
+8b-Theme-MCP extension is now active
+8b-Theme-MCP server started successfully
 ```
 
 If you see errors, check the Debug Console for details.
@@ -39,11 +39,11 @@ If you see errors, check the Debug Console for details.
 In the Extension Development Host window:
 
 1. Open Command Palette: **Cmd+Shift+P** (Mac) or **Ctrl+Shift+P** (Windows/Linux)
-2. Type: `8b-MCP: Show Status`
+2. Type: `8b-Theme-MCP: Show Status`
 3. Select the command
 
 **Expected Result:**
-- Info message appears: "8b-MCP is running!"
+- Info message appears: "8b-Theme-MCP is running!"
 
 ## Step 4: Test MCP Tools (Manual)
 
@@ -78,7 +78,7 @@ The extension now automatically registers itself with GitHub Copilot and other A
 
 **To verify auto-registration:**
 1. Open GitHub Copilot Chat (or your AI assistant)
-2. Check available MCP servers - you should see "8b-mcp"
+2. Check available MCP servers - you should see "8b-theme-mcp"
 3. No manual configuration needed! 🚀
 
 **Expected Results:**
@@ -125,7 +125,7 @@ Now that the MCP server is auto-registered, try these natural language requests:
 Check that all files compiled correctly:
 
 ```bash
-cd /Users/wraith/Documents/GitHub/ext/8b-mcp
+cd /Users/wraith/Documents/GitHub/ext/8b-theme-mcp
 ls -la out/
 ```
 

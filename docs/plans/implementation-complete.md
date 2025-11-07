@@ -1,4 +1,4 @@
-# 8b-MCP Implementation Complete ✅
+# 8b-Theme-MCP Implementation Complete ✅
 
 **Date:** 2025-11-07
 **Status:** Implementation Phase Complete
@@ -102,7 +102,7 @@ TypeScript Errors: 0
 ┌─────────────────────────────────────────┐
 │         VSCode Extension Host           │
 │  ┌───────────────────────────────────┐  │
-│  │     8b-MCP Extension              │  │
+│  │     8b-Theme-MCP Extension              │  │
 │  │  ┌─────────────────────────────┐  │  │
 │  │  │   MCP Server (stdio)        │  │  │
 │  │  │  - listColorGroups          │  │  │

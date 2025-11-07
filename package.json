@@ -1,6 +1,6 @@
 {
-  "name": "8b-mcp",
-  "displayName": "8b MCP - AI Theme Control",
+  "name": "8b-theme-mcp",
+  "displayName": "8b Theme MCP - AI Theme Control",
   "description": "AI-controlled dynamic theme manipulation via MCP",
   "version": "0.0.1",
   "publisher": "8b",
@@ -18,14 +18,14 @@
   "contributes": {
     "commands": [
       {
-        "command": "8b-mcp.showStatus",
-        "title": "8b-MCP: Show Status"
+        "command": "8b-theme-mcp.showStatus",
+        "title": "8b Theme MCP: Show Status"
       }
     ],
     "mcpServerDefinitionProviders": [
       {
-        "id": "8b-mcp-provider",
-        "label": "8b MCP - AI Theme Control"
+        "id": "8b-theme-mcp-provider",
+        "label": "8b Theme MCP - AI Theme Control"
       }
     ]
   },

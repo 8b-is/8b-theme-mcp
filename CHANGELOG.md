@@ -1,6 +1,6 @@
 # Change Log
 
-All notable changes to the "8b-mcp" extension will be documented in this file.
+All notable changes to the "8b-theme-mcp" extension will be documented in this file.
 
 ## [0.0.1] - 2025-11-07
 
