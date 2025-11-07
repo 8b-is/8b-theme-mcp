@@ -1,62 +1,98 @@
 import * as vscode from 'vscode';
+import * as http from 'http';
 import { BridgeRequest, BridgeResponse, BridgeMethod, isBridgeRequest, ConfigurationTarget } from './protocol';
 import { VSCodeConfig } from '../vscode/config';
 
 /**
- * BridgeServer - IPC server for extension host process
+ * BridgeServer - HTTP server for extension host process
  *
- * Runs in the VSCode extension host (parent process). Receives IPC messages from
+ * Runs in the VSCode extension host (parent process). Receives HTTP requests from
  * MCP server (child process), calls VSCode APIs via VSCodeConfig, and sends
  * responses back.
  *
  * This is the bridge that allows the standalone MCP server to access VSCode APIs
  * despite running in a separate process that doesn't have the 'vscode' module.
  *
+ * Uses HTTP instead of IPC because VSCode's MCP infrastructure doesn't expose
+ * child process IPC channels to extensions.
+ *
  * Usage:
  *   const bridge = new BridgeServer();
- *   // Now child process can send IPC messages and get VSCode API responses
+ *   const port = await bridge.start();
+ *   // Pass port to child via BRIDGE_PORT env var
  */
 export class BridgeServer {
   private vscodeConfig: VSCodeConfig;
-  private messageHandler: ((message: any) => void) | null = null;
+  private server: http.Server | undefined;
+  private port: number = 0;
 
   constructor() {
     this.vscodeConfig = new VSCodeConfig();
-    this.setupIPC();
   }
 
   /**
-   * Set up IPC message listener for requests from child process
-   *
-   * When a child process is spawned with IPC enabled (stdio: ['pipe', 'pipe', 'pipe', 'ipc']),
-   * the extension host CAN use process.on('message') to receive messages from the child.
-   * This handler validates incoming requests and routes them to handleRequest().
+   * Start HTTP server on localhost for bridge communication
+   * @returns Port number the server is listening on
    */
-  private setupIPC() {
-    // Create message handler that validates and processes requests
-    this.messageHandler = async (message: any) => {
-      // Validate that the message is a proper BridgeRequest
-      if (!isBridgeRequest(message)) {
-        console.error('[BridgeServer] Received invalid message:', message);
-        return;
-      }
+  async start(): Promise<number> {
+    return new Promise((resolve, reject) => {
+      this.server = http.createServer(async (req, res) => {
+        // Only accept POST requests
+        if (req.method !== 'POST') {
+          res.writeHead(405, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Method not allowed' }));
+          return;
+        }
 
-      console.log(`[BridgeServer] Received request: ${message.method} (id: ${message.id})`);
+        // Read request body
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', async () => {
+          try {
+            const request: BridgeRequest = JSON.parse(body);
+            const response = await this.handleRequest(request);
 
-      // Handle the request and send response back to child process
-      const response = await this.handleRequest(message);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(response));
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error('[BridgeServer] Error processing request:', errorMsg);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: errorMsg }));
+          }
+        });
+      });
 
-      // Send response back via IPC (process.send is available when spawned with IPC)
-      if (process.send) {
-        process.send(response);
+      // Listen on random available port on localhost only
+      this.server.listen(0, '127.0.0.1', () => {
+        const addr = this.server!.address();
+        if (addr && typeof addr !== 'string') {
+          this.port = addr.port;
+          console.log(`[BridgeServer] HTTP bridge listening on http://127.0.0.1:${this.port}`);
+          resolve(this.port);
+        } else {
+          reject(new Error('Failed to start bridge server'));
+        }
+      });
+
+      this.server.on('error', reject);
+    });
+  }
+
+  /**
+   * Stop the HTTP server
+   */
+  async stop(): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.server) {
+        this.server.close(() => {
+          console.log('[BridgeServer] HTTP bridge stopped');
+          resolve();
+        });
       } else {
-        console.error('[BridgeServer] process.send not available - child process may not be spawned with IPC');
+        resolve();
       }
-    };
-
-    // Listen for messages from child process
-    process.on('message', this.messageHandler);
-    console.log('[BridgeServer] IPC server initialized and listening for messages');
+    });
   }
 
   /**
@@ -186,17 +222,4 @@ export class BridgeServer {
     }
   }
 
-  /**
-   * Clean up resources and remove IPC listener
-   *
-   * Call this when the extension is deactivated to prevent memory leaks
-   * and ensure the message handler is properly removed.
-   */
-  dispose(): void {
-    if (this.messageHandler) {
-      process.off('message', this.messageHandler);
-      this.messageHandler = null;
-      console.log('[BridgeServer] IPC server disposed');
-    }
-  }
 }
