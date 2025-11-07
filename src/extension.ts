@@ -23,32 +23,46 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.showErrorMessage('Failed to start 8b-Theme-MCP server');
   }
 
-  // Register MCP server provider for automatic discovery by GitHub Copilot and other AI tools
-  // This makes the MCP server automatically available without manual configuration!
+  // TODO: ARCHITECTURAL REFACTOR NEEDED
+  //
+  // PROBLEM: The current architecture has a fundamental conflict:
+  // - MCP providers spawn separate Node.js processes (via McpStdioServerDefinition)
+  // - Separate processes don't have access to the 'vscode' module
+  // - Our ThemeMCPServer needs vscode module to modify VSCode settings
+  //
+  // SOLUTION OPTIONS:
+  // 1. Bridge Architecture (recommended):
+  //    - Create src/mcp/standalone.ts as entry point for separate process
+  //    - Extension provides HTTP/IPC bridge for VSCode API access
+  //    - MCP server calls bridge instead of direct vscode imports
+  //
+  // 2. In-Process Only (current workaround):
+  //    - MCP server runs only in extension host (lines 14-24 above)
+  //    - Works but limits integration with external MCP clients
+  //
+  // For now, we're using option 2 to get the extension working.
+  // Provider registration is commented out until bridge architecture is implemented.
+
+  /*
   const mcpProvider = vscode.lm.registerMcpServerDefinitionProvider(
-    '8b-theme-mcp-provider', // Must match the ID in package.json
+    '8b-theme-mcp-provider',
     {
-      // Provide the MCP server definitions
       async provideMcpServerDefinitions(): Promise<vscode.McpServerDefinition[]> {
-        // Get the path to our compiled extension
         const extensionPath = context.extensionPath;
         const serverPath = path.join(extensionPath, 'out', 'mcp', 'server.js');
 
-        // Return a single stdio-based MCP server definition
         return [
           new vscode.McpStdioServerDefinition(
-            '8b-theme-mcp', // Unique server ID
-            'node', // Command to execute
-            [serverPath], // Arguments (path to our server)
+            '8b-theme-mcp',
+            'node',
+            [serverPath],
             {
-              cwd: extensionPath, // Working directory
+              cwd: extensionPath,
             }
           ),
         ];
       },
 
-      // Resolve the server definition when it's about to start
-      // This is where we could add authentication or user prompts if needed
       async resolveMcpServerDefinition(
         definition: vscode.McpServerDefinition
       ): Promise<vscode.McpServerDefinition> {
@@ -58,8 +72,8 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  // Add to subscriptions so it gets cleaned up on deactivation
   context.subscriptions.push(mcpProvider);
+  */
 
   // Register a command to test the extension is loaded
   const statusCommand = vscode.commands.registerCommand(
