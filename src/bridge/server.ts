@@ -1,4 +1,5 @@
-import { BridgeRequest, BridgeResponse, BridgeMethod } from './protocol';
+import * as vscode from 'vscode';
+import { BridgeRequest, BridgeResponse, BridgeMethod, isBridgeRequest, ConfigurationTarget } from './protocol';
 import { VSCodeConfig } from '../vscode/config';
 
 /**
@@ -17,6 +18,7 @@ import { VSCodeConfig } from '../vscode/config';
  */
 export class BridgeServer {
   private vscodeConfig: VSCodeConfig;
+  private messageHandler: ((message: any) => void) | null = null;
 
   constructor() {
     this.vscodeConfig = new VSCodeConfig();
@@ -25,16 +27,63 @@ export class BridgeServer {
 
   /**
    * Set up IPC message listener for requests from child process
+   *
+   * When a child process is spawned with IPC enabled (stdio: ['pipe', 'pipe', 'pipe', 'ipc']),
+   * the extension host CAN use process.on('message') to receive messages from the child.
+   * This handler validates incoming requests and routes them to handleRequest().
    */
   private setupIPC() {
-    // Note: In extension context, we don't directly listen to process.on('message')
-    // because the extension host doesn't receive these messages.
-    // Instead, the child process will be spawned by VSCode, and we'll need to
-    // handle messages differently. This will be updated in the next task when we
-    // modify extension.ts to actually spawn and manage the child process.
+    // Create message handler that validates and processes requests
+    this.messageHandler = async (message: any) => {
+      // Validate that the message is a proper BridgeRequest
+      if (!isBridgeRequest(message)) {
+        console.error('[BridgeServer] Received invalid message:', message);
+        return;
+      }
 
-    // For now, this is the handler logic that will be called by the extension
-    console.log('[BridgeServer] IPC server initialized');
+      console.log(`[BridgeServer] Received request: ${message.method} (id: ${message.id})`);
+
+      // Handle the request and send response back to child process
+      const response = await this.handleRequest(message);
+
+      // Send response back via IPC (process.send is available when spawned with IPC)
+      if (process.send) {
+        process.send(response);
+      } else {
+        console.error('[BridgeServer] process.send not available - child process may not be spawned with IPC');
+      }
+    };
+
+    // Listen for messages from child process
+    process.on('message', this.messageHandler);
+    console.log('[BridgeServer] IPC server initialized and listening for messages');
+  }
+
+  /**
+   * Convert protocol ConfigurationTarget string to VSCode ConfigurationTarget enum
+   *
+   * This maps the simple string types from our IPC protocol to VSCode's
+   * actual ConfigurationTarget enum values.
+   *
+   * @param target - Configuration target string from protocol
+   * @returns VSCode ConfigurationTarget enum value
+   */
+  private mapConfigurationTarget(target?: ConfigurationTarget): vscode.ConfigurationTarget {
+    if (!target) {
+      return vscode.ConfigurationTarget.Global;
+    }
+
+    switch (target) {
+      case 'Global':
+        return vscode.ConfigurationTarget.Global;
+      case 'Workspace':
+        return vscode.ConfigurationTarget.Workspace;
+      case 'WorkspaceFolder':
+        return vscode.ConfigurationTarget.WorkspaceFolder;
+      default:
+        console.warn(`[BridgeServer] Unknown target "${target}", defaulting to Global`);
+        return vscode.ConfigurationTarget.Global;
+    }
   }
 
   /**
@@ -73,6 +122,7 @@ export class BridgeServer {
    *
    * This is where we validate parameters and call the right VSCode API method.
    * Each case handles parameter validation before calling VSCodeConfig.
+   * The optional 'target' parameter is mapped to VSCode's ConfigurationTarget enum.
    *
    * @param method - Bridge method name
    * @param params - Method parameters (already typed by BridgeRequest)
@@ -82,6 +132,7 @@ export class BridgeServer {
     switch (method) {
       case 'getCurrentColors':
         // No parameters needed - just get all colors
+        // (target parameter ignored for getCurrentColors as it only reads)
         return await this.vscodeConfig.getCurrentColors();
 
       case 'getColor':
@@ -89,6 +140,7 @@ export class BridgeServer {
         if (!params?.key) {
           throw new Error('Missing required parameter: key');
         }
+        // (target parameter ignored for getColor as it only reads)
         return await this.vscodeConfig.getColor(params.key);
 
       case 'setColor':
@@ -96,7 +148,9 @@ export class BridgeServer {
         if (!params?.key || !params?.value) {
           throw new Error('Missing required parameters: key, value');
         }
-        await this.vscodeConfig.setColor(params.key, params.value);
+        // Map target string to VSCode ConfigurationTarget enum
+        const setColorTarget = this.mapConfigurationTarget(params.target);
+        await this.vscodeConfig.setColor(params.key, params.value, setColorTarget);
         return { success: true };
 
       case 'setColors':
@@ -104,7 +158,9 @@ export class BridgeServer {
         if (!params?.colors) {
           throw new Error('Missing required parameter: colors');
         }
-        await this.vscodeConfig.setColors(params.colors);
+        // Map target string to VSCode ConfigurationTarget enum
+        const setColorsTarget = this.mapConfigurationTarget(params.target);
+        await this.vscodeConfig.setColors(params.colors, setColorsTarget);
         return { success: true };
 
       case 'resetColor':
@@ -112,17 +168,35 @@ export class BridgeServer {
         if (!params?.key) {
           throw new Error('Missing required parameter: key');
         }
-        await this.vscodeConfig.resetColor(params.key);
+        // Map target string to VSCode ConfigurationTarget enum
+        const resetColorTarget = this.mapConfigurationTarget(params.target);
+        await this.vscodeConfig.resetColor(params.key, resetColorTarget);
         return { success: true };
 
       case 'resetAllColors':
         // No parameters needed - reset everything
-        await this.vscodeConfig.resetAllColors();
+        // Map target string to VSCode ConfigurationTarget enum
+        const resetAllTarget = this.mapConfigurationTarget(params?.target);
+        await this.vscodeConfig.resetAllColors(resetAllTarget);
         return { success: true };
 
       default:
         // This should never happen thanks to TypeScript types, but just in case
         throw new Error(`Unknown bridge method: ${method}`);
+    }
+  }
+
+  /**
+   * Clean up resources and remove IPC listener
+   *
+   * Call this when the extension is deactivated to prevent memory leaks
+   * and ensure the message handler is properly removed.
+   */
+  dispose(): void {
+    if (this.messageHandler) {
+      process.off('message', this.messageHandler);
+      this.messageHandler = null;
+      console.log('[BridgeServer] IPC server disposed');
     }
   }
 }
