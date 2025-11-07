@@ -1,0 +1,40 @@
+{
+  "name": "8b-mcp",
+  "displayName": "8b MCP - AI Theme Control",
+  "description": "AI-controlled dynamic theme manipulation via MCP",
+  "version": "0.0.1",
+  "publisher": "8b",
+  "engines": {
+    "vscode": "^1.105.0"
+  },
+  "categories": [
+    "Themes",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": []
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.105.0",
+    "@typescript-eslint/eslint-plugin": "^7.x",
+    "@typescript-eslint/parser": "^7.x",
+    "eslint": "^8.x",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "tinycolor2": "^1.6.0",
+    "wcag-contrast": "^3.0.0"
+  }
+}
