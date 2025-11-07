@@ -66,17 +66,40 @@ Add this to your settings.json:
 **To reset:**
 Remove the `workbench.colorCustomizations` section or set it to `{}`
 
-## Step 5: Test with AI Assistant (Recommended)
+## Step 5: Test Automatic MCP Registration (NEW! 🎉)
 
-If you have an AI assistant with MCP support (like Claude Desktop):
+The extension now automatically registers itself with GitHub Copilot and other AI assistants!
 
-1. Configure the assistant to connect to the 8b-MCP server
-2. Try these natural language requests:
-   - "List all available color groups"
-   - "Show me the colors in the editor group"
-   - "Set the editor background to #000000"
-   - "What is the current value of editor.foreground?"
-   - "Reset all color customizations"
+**What happens automatically:**
+1. Extension activates on startup
+2. MCP server is registered via VSCode API
+3. GitHub Copilot/Claude/other AI tools discover it automatically
+4. You see a welcome notification (first time only)
+
+**To verify auto-registration:**
+1. Open GitHub Copilot Chat (or your AI assistant)
+2. Check available MCP servers - you should see "8b-mcp"
+3. No manual configuration needed! 🚀
+
+**Expected Results:**
+- Welcome notification appears on first install
+- MCP server appears in AI assistant's available tools
+- Zero manual configuration required!
+
+## Step 6: Test with AI Assistant
+
+Now that the MCP server is auto-registered, try these natural language requests:
+
+**With GitHub Copilot Chat:**
+- "List all available color groups"
+- "Show me the colors in the editor group"
+- "Set the editor background to #000000"
+- "What is the current value of editor.foreground?"
+- "Reset all color customizations"
+
+**With Claude Desktop** (requires MCP config):
+- Same commands as above
+- Claude can also suggest color schemes!
 
 **Expected Results:**
 - AI can list color groups (7 groups)
@@ -85,7 +108,7 @@ If you have an AI assistant with MCP support (like Claude Desktop):
 - AI can query current values
 - AI can reset customizations
 
-## Step 6: Test with Different Themes
+## Step 7: Test with Different Themes
 
 1. Switch to "8b Cyberpunk" theme (if installed):
    - Cmd+K Cmd+T → Select "8b Cyberpunk"
@@ -97,7 +120,7 @@ If you have an AI assistant with MCP support (like Claude Desktop):
 - Color customizations apply on top of any theme
 - Switching themes preserves your customizations
 
-## Step 7: Verify Build Output
+## Step 8: Verify Build Output
 
 Check that all files compiled correctly:
 

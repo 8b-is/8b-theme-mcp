@@ -21,6 +21,12 @@
         "command": "8b-mcp.showStatus",
         "title": "8b-MCP: Show Status"
       }
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "8b-mcp-provider",
+        "label": "8b MCP - AI Theme Control"
+      }
     ]
   },
   "scripts": {

@@ -54,6 +54,36 @@ Reset all color customizations to theme defaults
 
 ## Installation
 
+### From VSIX (Recommended) 🚀
+
+```bash
+# Install the VSIX file
+code --install-extension 8b-mcp-0.0.1.vsix
+```
+
+**That's it!** The extension automatically:
+- ✅ Activates on VSCode startup
+- ✅ Registers with GitHub Copilot and AI assistants
+- ✅ Shows a welcome notification (first time only)
+- ✅ Makes all MCP tools available to your AI
+
+**No manual configuration needed!** 🎉
+
+### Verify Installation
+
+1. Open Command Palette: `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
+2. Type: `8b-MCP: Show Status`
+3. You should see: "🎨 8b-MCP is running! Your AI assistant can now control your VSCode colors!"
+
+### Start Using with GitHub Copilot
+
+Just ask Copilot naturally:
+- "Make my editor background darker"
+- "Show me all available color groups"
+- "Set the sidebar to a dark blue"
+
+The MCP server is already registered and ready to go! 🎨
+
 ### From Source (Development)
 
 1. Clone this repository
@@ -61,15 +91,6 @@ Reset all color customizations to theme defaults
 3. Run `npm run compile`
 4. Press F5 to launch Extension Development Host
 5. Test with Command Palette: `8b-MCP: Show Status`
-
-### From VSIX (When Published)
-
-```bash
-# Install the VSIX file
-code --install-extension 8b-mcp-0.0.1.vsix
-```
-
-Then restart VSCode.
 
 ## Development
 
