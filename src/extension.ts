@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { ThemeMCPServer } from './mcp/server';
 import * as path from 'path';
+import { BridgeServer } from './bridge/server';
 
-let mcpServer: ThemeMCPServer | undefined;
+let bridgeServer: BridgeServer | undefined;
 
 /**
  * Extension activation - called when VSCode loads the extension
@@ -11,58 +11,42 @@ let mcpServer: ThemeMCPServer | undefined;
 export async function activate(context: vscode.ExtensionContext) {
   console.log('8b-Theme-MCP extension is now active');
 
-  // Initialize MCP server
-  mcpServer = new ThemeMCPServer();
+  // Initialize HTTP bridge server in extension host
+  // This runs in the parent process and handles HTTP requests from MCP server (child)
+  bridgeServer = new BridgeServer();
+  console.log('8b-Theme-MCP bridge server initialized');
 
-  // Start the MCP server with stdio transport
-  try {
-    await mcpServer.start();
-    console.log('8b-Theme-MCP server started successfully');
-  } catch (error) {
-    console.error('Failed to start 8b-Theme-MCP server:', error);
-    vscode.window.showErrorMessage('Failed to start 8b-Theme-MCP server');
-  }
-
-  // TODO: ARCHITECTURAL REFACTOR NEEDED
-  //
-  // PROBLEM: The current architecture has a fundamental conflict:
-  // - MCP providers spawn separate Node.js processes (via McpStdioServerDefinition)
-  // - Separate processes don't have access to the 'vscode' module
-  // - Our ThemeMCPServer needs vscode module to modify VSCode settings
-  //
-  // SOLUTION OPTIONS:
-  // 1. Bridge Architecture (recommended):
-  //    - Create src/mcp/standalone.ts as entry point for separate process
-  //    - Extension provides HTTP/IPC bridge for VSCode API access
-  //    - MCP server calls bridge instead of direct vscode imports
-  //
-  // 2. In-Process Only (current workaround):
-  //    - MCP server runs only in extension host (lines 14-24 above)
-  //    - Works but limits integration with external MCP clients
-  //
-  // For now, we're using option 2 to get the extension working.
-  // Provider registration is commented out until bridge architecture is implemented.
-
-  /*
+  // Register MCP server provider for automatic discovery by GitHub Copilot and other AI tools
+  // This makes the MCP server automatically available without manual configuration!
   const mcpProvider = vscode.lm.registerMcpServerDefinitionProvider(
-    '8b-theme-mcp-provider',
+    '8b-theme-mcp-provider', // Must match the ID in package.json
     {
+      // Provide the MCP server definitions
       async provideMcpServerDefinitions(): Promise<vscode.McpServerDefinition[]> {
-        const extensionPath = context.extensionPath;
-        const serverPath = path.join(extensionPath, 'out', 'mcp', 'server.js');
+        // Start bridge server and get port
+        const bridgePort = await bridgeServer!.start();
 
+        // Get the path to our compiled extension
+        const extensionPath = context.extensionPath;
+        // IMPORTANT: Point to standalone.js (runs as separate process with HTTP bridge)
+        const serverPath = path.join(extensionPath, 'out', 'mcp', 'standalone.js');
+
+        // Return a single stdio-based MCP server definition
         return [
           new vscode.McpStdioServerDefinition(
-            '8b-theme-mcp',
-            'node',
-            [serverPath],
+            '8b-theme-mcp', // Unique server ID (label)
+            'node', // Command to execute
+            [serverPath], // Arguments (path to our standalone server)
             {
-              cwd: extensionPath,
+              // Pass bridge port to child process
+              BRIDGE_PORT: String(bridgePort)
             }
           ),
         ];
       },
 
+      // Resolve the server definition when it's about to start
+      // This is where we could add authentication or user prompts if needed
       async resolveMcpServerDefinition(
         definition: vscode.McpServerDefinition
       ): Promise<vscode.McpServerDefinition> {
@@ -72,8 +56,8 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // Add to subscriptions so it gets cleaned up on deactivation
   context.subscriptions.push(mcpProvider);
-  */
 
   // Register a command to test the extension is loaded
   const statusCommand = vscode.commands.registerCommand(
@@ -108,6 +92,12 @@ export async function activate(context: vscode.ExtensionContext) {
 /**
  * Extension deactivation - called when VSCode unloads the extension
  */
-export function deactivate() {
+export async function deactivate() {
   console.log('8b-Theme-MCP extension is now deactivated');
+
+  // Stop bridge server
+  if (bridgeServer) {
+    await bridgeServer.stop();
+    bridgeServer = undefined;
+  }
 }
