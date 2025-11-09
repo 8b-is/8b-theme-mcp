@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 
 export class AudioPlayerProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = '8bTheme.audioPlayer';
@@ -252,7 +251,8 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
         let beatDetector = {
             history: [],
             threshold: 1.3,
-            lastBeat: 0
+            lastBeat: 0,
+            beatTimes: []
         };
 
         // Initialize canvas size
@@ -280,6 +280,9 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
                 // Create audio element
                 if (audioElement) {
                     audioElement.pause();
+                    // Clean up old event listeners
+                    audioElement.removeEventListener('timeupdate', updateTimeDisplay);
+                    audioElement.removeEventListener('loadedmetadata', updateTimeDisplay);
                     audioElement.src = '';
                 }
 
@@ -306,7 +309,7 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
             } catch (error) {
                 vscode.postMessage({
                     type: 'error',
-                    message: 'Failed to load audio file: ' + error.message
+                    message: 'Failed to load audio file.'
                 });
             }
         });
@@ -517,7 +520,7 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
                 weightedSum += i * melSpectrum[i];
                 sum += melSpectrum[i];
             }
-            const spectralCentroid = sum > 0 ? weightedSum / sum / melSpectrum.length : 0;
+            const spectralCentroid = sum > 0 ? weightedSum / sum / melSpectrum.length : 0.5;
 
             // Dominant frequency bin
             let maxBin = 0;
@@ -544,12 +547,24 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
             document.getElementById('energy').textContent = (features.energy * 100).toFixed(1) + '%';
             document.getElementById('brightness').textContent = (features.brightness * 100).toFixed(1) + '%';
 
-            // Simple BPM estimation based on beat intervals
+            // Improved BPM estimation: average over last N beat intervals
             if (features.isBeat) {
                 const now = Date.now();
-                if (beatDetector.lastBeat > 0) {
-                    const interval = (now - beatDetector.lastBeat) / 1000;
-                    const bpm = Math.round(60 / interval);
+                // Keep only the last N beats (e.g., N=8)
+                const N = 8;
+                beatDetector.beatTimes.push(now);
+                if (beatDetector.beatTimes.length > N) {
+                    beatDetector.beatTimes.shift();
+                }
+                if (beatDetector.beatTimes.length >= 2) {
+                    // Calculate intervals between consecutive beats
+                    let intervals = [];
+                    for (let i = 1; i < beatDetector.beatTimes.length; i++) {
+                        intervals.push((beatDetector.beatTimes[i] - beatDetector.beatTimes[i - 1]) / 1000);
+                    }
+                    // Average interval
+                    const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+                    const bpm = Math.round(60 / avgInterval);
                     if (bpm >= 60 && bpm <= 200) {
                         document.getElementById('bpm').textContent = bpm;
                     }

@@ -49,7 +49,7 @@ export class ReactiveThemeController {
             restored[key] = value;
         });
 
-        config.update('workbench.colorCustomizations', restored, vscode.ConfigurationTarget.Global);
+        config.update('workbench.colorCustomizations', restored, vscode.ConfigurationTarget.Workspace);
     }
 
     public processAudioData(data: AudioAnalysisData) {
@@ -62,6 +62,7 @@ export class ReactiveThemeController {
 
         // Smooth transitions
         this.lastHue = this.smooth(this.lastHue, targetHue, this.smoothingFactor);
+        this.lastHue = ((this.lastHue % 360) + 360) % 360; // Ensure hue stays in [0, 360)
         this.lastSaturation = this.smooth(this.lastSaturation, targetSaturation, this.smoothingFactor);
         this.lastBrightness = this.smooth(this.lastBrightness, targetBrightness, this.smoothingFactor);
 
@@ -132,7 +133,7 @@ export class ReactiveThemeController {
 
         // Apply the colors
         const config = vscode.workspace.getConfiguration();
-        config.update('workbench.colorCustomizations', colorCustomizations, vscode.ConfigurationTarget.Global);
+        config.update('workbench.colorCustomizations', colorCustomizations, vscode.ConfigurationTarget.Workspace);
     }
 
     private smooth(current: number, target: number, factor: number): number {

@@ -124,6 +124,12 @@ export async function activate(context: vscode.ExtensionContext) {
 export async function deactivate() {
   console.log('8b-Theme-MCP extension is now deactivated');
 
+  // Deactivate reactive theme controller
+  if (reactiveController) {
+    reactiveController.deactivate();
+    reactiveController = undefined;
+  }
+
   // Stop bridge server
   if (bridgeServer) {
     await bridgeServer.stop();
