@@ -5,13 +5,18 @@ import tinycolor from 'tinycolor2';
 export class ReactiveThemeController {
     private baseColors: Map<string, string> = new Map();
     private isActive = false;
-    private smoothingFactor = 0.3;
+    // Smoothing factor controls how quickly the theme responds to audio changes.
+    // Lower values (e.g., 0.1) = slower, smoother transitions
+    // Higher values (e.g., 0.5) = faster, more responsive changes
+    private smoothingFactor: number;
     private lastHue = 0;
     private lastSaturation = 50;
     private lastBrightness = 50;
 
     constructor() {
         // Store original colors when activated
+        // Load smoothing factor from configuration, default to 0.3
+        this.smoothingFactor = vscode.workspace.getConfiguration('8b-theme-mcp').get<number>('audioReactive.smoothingFactor', 0.3);
     }
 
     public activate() {

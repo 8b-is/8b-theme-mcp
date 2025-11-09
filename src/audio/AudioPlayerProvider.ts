@@ -6,7 +6,8 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
-        private readonly onAudioData: (data: AudioAnalysisData) => void
+        private readonly onAudioData: (data: AudioAnalysisData) => void,
+        private readonly onReactiveToggle: (enabled: boolean) => void
     ) {}
 
     public resolveWebviewView(
@@ -28,6 +29,9 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
             switch (data.type) {
                 case 'audioAnalysis':
                     this.onAudioData(data.payload);
+                    break;
+                case 'reactiveToggle':
+                    this.onReactiveToggle(data.enabled);
                     break;
                 case 'error':
                     vscode.window.showErrorMessage(data.message);
@@ -237,6 +241,10 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
         const MEL_BINS = 128;
         const SAMPLE_RATE = 44100;
         const UPDATE_INTERVAL = 20; // 20ms per line as requested!
+        // Beat detection threshold - multiplier of average energy to detect beats.
+        // Higher values (e.g., 1.5) = fewer, stronger beats detected
+        // Lower values (e.g., 1.1) = more sensitive, detects softer beats
+        const BEAT_THRESHOLD = 1.3;
 
         // UI elements
         const fileInput = document.getElementById('fileInput');
@@ -250,7 +258,6 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
         // Audio analysis state
         let beatDetector = {
             history: [],
-            threshold: 1.3,
             lastBeat: 0,
             beatTimes: []
         };
@@ -344,6 +351,14 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
             }
         });
 
+        // Reactive theme toggle
+        reactiveToggle.addEventListener('change', () => {
+            vscode.postMessage({
+                type: 'reactiveToggle',
+                enabled: reactiveToggle.checked
+            });
+        });
+
         // Create mel filterbank
         function createMelFilterbank(numFilters, fftSize, sampleRate) {
             const filters = [];
@@ -427,8 +442,8 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
                     // Add new line to spectrogram (rolling visualization)
                     spectrogramData.push(Array.from(melSpectrum));
 
-                    // Keep only enough lines to fill the canvas
-                    const maxLines = canvas.width;
+                    // Keep only enough lines to fill the canvas, with an absolute maximum for safety
+                    const maxLines = Math.min(canvas.width, 2000); // Cap at 2000 lines max
                     if (spectrogramData.length > maxLines) {
                         spectrogramData.shift();
                     }
@@ -503,7 +518,7 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
             }
 
             const avgEnergy = beatDetector.history.reduce((a, b) => a + b, 0) / beatDetector.history.length;
-            const isBeat = energy > avgEnergy * beatDetector.threshold;
+            const isBeat = energy > avgEnergy * BEAT_THRESHOLD;
 
             // Calculate brightness (high frequency content)
             const highFreqStart = Math.floor(frequencyData.length * 0.6);

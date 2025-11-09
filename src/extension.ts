@@ -30,6 +30,16 @@ export async function activate(context: vscode.ExtensionContext) {
       if (reactiveController) {
         reactiveController.processAudioData(audioData);
       }
+    },
+    (enabled) => {
+      // Handle reactive theme toggle
+      if (reactiveController) {
+        if (enabled) {
+          reactiveController.activate();
+        } else {
+          reactiveController.deactivate();
+        }
+      }
     }
   );
 
