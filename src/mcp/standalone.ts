@@ -30,6 +30,8 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { BridgeClient } from '../bridge/client';
 import { ColorManipulator } from '../colors/manipulation';
+import { AdvancedColorOps } from '../colors/advanced';
+import { MoodPresetsManager } from '../themes/MoodPresets';
 import * as colorGroupsData from '../../data/color-groups.json';
 import { ColorGroups } from '../colors/groups';
 
@@ -136,6 +138,127 @@ async function main() {
         inputSchema: {
           type: 'object',
           properties: {},
+        },
+      },
+      {
+        name: 'listMoodPresets',
+        description: 'List all available mood presets for quick theme changes (Ocean Depths, Sunset Vibes, Cyberpunk, etc.)',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'applyMoodPreset',
+        description: 'Apply a mood preset to instantly change the entire theme (e.g., "Cyberpunk", "Ocean Depths")',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'Name of the mood preset to apply',
+            },
+          },
+          required: ['name'],
+        },
+      },
+      {
+        name: 'generateColorHarmony',
+        description: 'Generate a color harmony (analogous, complementary, triadic, etc.) from a base color',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            baseColor: {
+              type: 'string',
+              description: 'Base color in hex format (e.g., "#ff00ff")',
+            },
+            harmonyType: {
+              type: 'string',
+              enum: ['analogous', 'complementary', 'triadic', 'tetradic', 'split-complementary', 'square'],
+              description: 'Type of color harmony to generate',
+            },
+          },
+          required: ['baseColor', 'harmonyType'],
+        },
+      },
+      {
+        name: 'generateGradient',
+        description: 'Generate a smooth color gradient between two colors',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            startColor: {
+              type: 'string',
+              description: 'Starting color in hex format',
+            },
+            endColor: {
+              type: 'string',
+              description: 'Ending color in hex format',
+            },
+            steps: {
+              type: 'number',
+              description: 'Number of colors in the gradient (default: 10)',
+            },
+          },
+          required: ['startColor', 'endColor'],
+        },
+      },
+      {
+        name: 'adjustColorTemperature',
+        description: 'Make a color warmer (orange) or cooler (blue) by adjusting temperature',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            color: {
+              type: 'string',
+              description: 'Color to adjust in hex format',
+            },
+            amount: {
+              type: 'number',
+              description: 'Temperature adjustment (-100 to 100, negative = cooler, positive = warmer)',
+            },
+          },
+          required: ['color', 'amount'],
+        },
+      },
+      {
+        name: 'ensureReadableColor',
+        description: 'Adjust a foreground color to ensure it meets WCAG readability standards against a background',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            foreground: {
+              type: 'string',
+              description: 'Foreground color in hex format',
+            },
+            background: {
+              type: 'string',
+              description: 'Background color in hex format',
+            },
+            targetRatio: {
+              type: 'number',
+              description: 'Target contrast ratio (4.5 for AA, 7.0 for AAA, default: 4.5)',
+            },
+          },
+          required: ['foreground', 'background'],
+        },
+      },
+      {
+        name: 'createCustomMood',
+        description: 'Create a custom mood preset from a base color and apply it',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            baseColor: {
+              type: 'string',
+              description: 'Base color for the mood in hex format',
+            },
+            name: {
+              type: 'string',
+              description: 'Name for the custom mood (default: "Custom Mood")',
+            },
+          },
+          required: ['baseColor'],
         },
       },
     ],
@@ -297,8 +420,224 @@ async function main() {
         };
       }
 
+      case 'listMoodPresets': {
+        // List all available mood presets
+        const presets = MoodPresetsManager.getAllPresets();
+        const presetList = presets.map(p => ({
+          name: p.name,
+          description: p.description,
+          emoji: p.emoji,
+        }));
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  presets: presetList,
+                  count: presetList.length,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      case 'applyMoodPreset': {
+        // Apply a mood preset
+        if (!args) throw new Error('Missing arguments for applyMoodPreset');
+        const presetName = args.name as string;
+
+        const preset = MoodPresetsManager.getPreset(presetName);
+        if (!preset) {
+          const available = MoodPresetsManager.getAllPresets().map(p => p.name).join(', ');
+          throw new Error(`Unknown mood preset: ${presetName}. Available: ${available}`);
+        }
+
+        // Apply all colors via bridge
+        await bridge.setColors(preset.colors);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: true,
+                  preset: preset.name,
+                  description: preset.description,
+                  emoji: preset.emoji,
+                  colorsApplied: Object.keys(preset.colors).length,
+                  message: `${preset.emoji} ${preset.name} theme applied! ${preset.description}`,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      case 'generateColorHarmony': {
+        // Generate color harmony from base color
+        if (!args) throw new Error('Missing arguments for generateColorHarmony');
+        const baseColor = args.baseColor as string;
+        const harmonyType = args.harmonyType as 'analogous' | 'complementary' | 'triadic' | 'tetradic' | 'split-complementary' | 'square';
+
+        const harmony = AdvancedColorOps.generateHarmony(baseColor, harmonyType);
+        if (!harmony) {
+          throw new Error(`Invalid base color: ${baseColor}`);
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  harmonyType: harmony.name,
+                  baseColor,
+                  colors: harmony.colors,
+                  count: harmony.colors.length,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      case 'generateGradient': {
+        // Generate color gradient
+        if (!args) throw new Error('Missing arguments for generateGradient');
+        const startColor = args.startColor as string;
+        const endColor = args.endColor as string;
+        const steps = (args.steps as number) || 10;
+
+        const gradient = AdvancedColorOps.generateGradient(startColor, endColor, steps);
+        if (gradient.length === 0) {
+          throw new Error(`Invalid colors or steps: ${startColor}, ${endColor}, ${steps}`);
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  startColor,
+                  endColor,
+                  steps,
+                  gradient,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      case 'adjustColorTemperature': {
+        // Adjust color temperature
+        if (!args) throw new Error('Missing arguments for adjustColorTemperature');
+        const color = args.color as string;
+        const amount = args.amount as number;
+
+        const adjusted = AdvancedColorOps.adjustTemperature(color, amount);
+        if (!adjusted) {
+          throw new Error(`Invalid color: ${color}`);
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  originalColor: color,
+                  adjustedColor: adjusted,
+                  temperatureChange: amount,
+                  direction: amount > 0 ? 'warmer' : 'cooler',
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      case 'ensureReadableColor': {
+        // Ensure color readability
+        if (!args) throw new Error('Missing arguments for ensureReadableColor');
+        const foreground = args.foreground as string;
+        const background = args.background as string;
+        const targetRatio = (args.targetRatio as number) || 4.5;
+
+        const readable = AdvancedColorOps.ensureReadability(foreground, background, targetRatio);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  originalForeground: foreground,
+                  adjustedForeground: readable,
+                  background,
+                  targetRatio,
+                  wcagLevel: targetRatio >= 7 ? 'AAA' : 'AA',
+                  wasAdjusted: foreground !== readable,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      case 'createCustomMood': {
+        // Create and apply custom mood preset
+        if (!args) throw new Error('Missing arguments for createCustomMood');
+        const baseColor = args.baseColor as string;
+        const name = (args.name as string) || 'Custom Mood';
+
+        const preset = MoodPresetsManager.createCustomMood(name, baseColor);
+        if (!preset) {
+          throw new Error(`Invalid base color: ${baseColor}`);
+        }
+
+        // Apply the custom mood
+        await bridge.setColors(preset.colors);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: true,
+                  preset: preset.name,
+                  baseColor,
+                  colorsApplied: Object.keys(preset.colors).length,
+                  message: `${preset.emoji} Custom mood "${preset.name}" created and applied!`,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
       default:
-        throw new Error(`Unknown tool: ${name}. Available tools: listColorGroups, getColorsInGroup, setColor, getColor, resetColors`);
+        throw new Error(`Unknown tool: ${name}. Use listTools to see available tools.`);
     }
   });
 
