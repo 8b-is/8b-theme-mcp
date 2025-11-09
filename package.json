@@ -1,14 +1,15 @@
 {
   "name": "8b-theme-mcp",
-  "displayName": "8b Theme MCP - AI Theme Control",
-  "description": "AI-controlled dynamic theme manipulation via MCP",
-  "version": "0.0.1",
+  "displayName": "8b Theme MCP - AI Theme Control + Audio Visualizer",
+  "description": "AI-controlled dynamic theme manipulation via MCP with audio-reactive themes and mel spectrogram visualizer",
+  "version": "0.1.0",
   "publisher": "8b",
   "engines": {
     "vscode": "^1.105.0"
   },
   "categories": [
     "Themes",
+    "Visualization",
     "Other"
   ],
   "activationEvents": [
@@ -26,6 +27,21 @@
       {
         "id": "8b-theme-mcp-provider",
         "label": "8b Theme MCP - AI Theme Control"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "type": "webview",
+          "id": "8bTheme.audioPlayer",
+          "name": "Audio Player & Visualizer"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "8bTheme.audioPlayer",
+        "contents": "Load an audio file to see the mel spectrogram visualization and enable audio-reactive theming!"
       }
     ]
   },

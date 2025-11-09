@@ -1,8 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { BridgeServer } from './bridge/server';
+import { AudioPlayerProvider } from './audio/AudioPlayerProvider';
+import { ReactiveThemeController } from './audio/ReactiveThemeController';
 
 let bridgeServer: BridgeServer | undefined;
+let reactiveController: ReactiveThemeController | undefined;
 
 /**
  * Extension activation - called when VSCode loads the extension
@@ -15,6 +18,27 @@ export async function activate(context: vscode.ExtensionContext) {
   // This runs in the parent process and handles HTTP requests from MCP server (child)
   bridgeServer = new BridgeServer();
   console.log('8b-Theme-MCP bridge server initialized');
+
+  // Initialize audio-reactive theme controller
+  reactiveController = new ReactiveThemeController();
+
+  // Register audio player webview
+  const audioPlayerProvider = new AudioPlayerProvider(
+    context.extensionUri,
+    (audioData) => {
+      // Handle audio analysis data for reactive theming
+      if (reactiveController) {
+        reactiveController.processAudioData(audioData);
+      }
+    }
+  );
+
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      AudioPlayerProvider.viewType,
+      audioPlayerProvider
+    )
+  );
 
   // Register MCP server provider for automatic discovery by GitHub Copilot and other AI tools
   // This makes the MCP server automatically available without manual configuration!
@@ -64,7 +88,12 @@ export async function activate(context: vscode.ExtensionContext) {
     '8b-theme-mcp.showStatus',
     () => {
       vscode.window.showInformationMessage(
-        '🎨 8b-Theme-MCP is running! Your AI assistant can now control your VSCode colors!'
+        '🎨🎵 8b-Theme-MCP is running!\n\n' +
+        '✅ MCP Tools: 12 color & mood tools available\n' +
+        '✅ Mood Presets: 12 beautiful themes\n' +
+        '✅ Audio Player: Mel spectrogram visualizer\n' +
+        '✅ Audio-Reactive: Theme dances to music!\n\n' +
+        'Try: "Apply the Cyberpunk mood preset" or "Show me Ocean Depths theme"'
       );
     }
   );
@@ -76,12 +105,12 @@ export async function activate(context: vscode.ExtensionContext) {
   if (!hasShownWelcome) {
     vscode.window
       .showInformationMessage(
-        '🎨 8b-Theme-MCP installed! Your AI assistant (like GitHub Copilot) can now dynamically change your theme colors. Try asking: "Make my editor background dark blue"',
+        '🎨🎵 8b-Theme-MCP installed! Features:\n• AI-controlled themes via MCP\n• 12 mood presets (Cyberpunk, Ocean Depths, etc.)\n• Audio player with mel spectrogram\n• Audio-reactive themes!\nCheck the Explorer sidebar for the Audio Player!',
         'Got it!',
-        'Show Tools'
+        'Show Status'
       )
       .then((selection) => {
-        if (selection === 'Show Tools') {
+        if (selection === 'Show Status') {
           vscode.commands.executeCommand('8b-theme-mcp.showStatus');
         }
       });
