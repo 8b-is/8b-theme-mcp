@@ -43,7 +43,19 @@
         "view": "8bTheme.audioPlayer",
         "contents": "Load an audio file to see the mel spectrogram visualization and enable audio-reactive theming!"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "8b Theme MCP",
+      "properties": {
+        "8b-theme-mcp.audioReactive.smoothingFactor": {
+          "type": "number",
+          "default": 0.3,
+          "minimum": 0.1,
+          "maximum": 0.9,
+          "description": "Controls how quickly the theme responds to audio changes. Lower values (0.1) = slower, smoother transitions. Higher values (0.5) = faster, more responsive."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

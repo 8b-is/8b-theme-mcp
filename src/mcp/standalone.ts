@@ -637,7 +637,7 @@ async function main() {
       }
 
       default:
-        throw new Error(`Unknown tool: ${name}. Use listTools to see available tools.`);
+        throw new Error(`Unknown tool: ${name}. Check the tools list in your MCP client to see available tools.`);
     }
   });
 

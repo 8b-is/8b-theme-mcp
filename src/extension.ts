@@ -30,6 +30,16 @@ export async function activate(context: vscode.ExtensionContext) {
       if (reactiveController) {
         reactiveController.processAudioData(audioData);
       }
+    },
+    (enabled) => {
+      // Handle reactive theme toggle
+      if (reactiveController) {
+        if (enabled) {
+          reactiveController.activate();
+        } else {
+          reactiveController.deactivate();
+        }
+      }
     }
   );
 
@@ -123,6 +133,12 @@ export async function activate(context: vscode.ExtensionContext) {
  */
 export async function deactivate() {
   console.log('8b-Theme-MCP extension is now deactivated');
+
+  // Deactivate reactive theme controller
+  if (reactiveController) {
+    reactiveController.deactivate();
+    reactiveController = undefined;
+  }
 
   // Stop bridge server
   if (bridgeServer) {

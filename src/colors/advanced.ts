@@ -223,7 +223,7 @@ export class AdvancedColorOps {
         // Positive amount = warmer (shift toward orange)
         // Negative amount = cooler (shift toward blue)
         const hsl = c.toHsl();
-        let targetHue = hsl.h;
+        let targetHue;
 
         if (amount > 0) {
             // Warm: shift toward orange (30°)
@@ -412,8 +412,8 @@ export class AdvancedColorOps {
         }
 
         let result = start + diff * t;
-        if (result < 0) result += 360;
-        if (result >= 360) result -= 360;
+        // Robustly wrap hue to [0, 360) using modulo arithmetic
+        result = ((result % 360) + 360) % 360;
 
         return result;
     }
