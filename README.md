@@ -243,7 +243,7 @@ Press F5 to launch Extension Development Host
 
 ## Changelog
 
-### v0.1.0 (2025-11-09)
+### v0.1.0
 - 🎨 Added 12 beautiful mood presets
 - 🎵 Added audio player with mel spectrogram visualization
 - 🌈 Added audio-reactive theming

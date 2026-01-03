@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 
 export class AudioPlayerProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = '8bTheme.audioPlayer';
@@ -7,7 +6,8 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
-        private readonly onAudioData: (data: AudioAnalysisData) => void
+        private readonly onAudioData: (data: AudioAnalysisData) => void,
+        private readonly onReactiveToggle: (enabled: boolean) => void
     ) {}
 
     public resolveWebviewView(
@@ -29,6 +29,9 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
             switch (data.type) {
                 case 'audioAnalysis':
                     this.onAudioData(data.payload);
+                    break;
+                case 'reactiveToggle':
+                    this.onReactiveToggle(data.enabled);
                     break;
                 case 'error':
                     vscode.window.showErrorMessage(data.message);
@@ -238,6 +241,10 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
         const MEL_BINS = 128;
         const SAMPLE_RATE = 44100;
         const UPDATE_INTERVAL = 20; // 20ms per line as requested!
+        // Beat detection threshold - multiplier of average energy to detect beats.
+        // Higher values (e.g., 1.5) = fewer, stronger beats detected
+        // Lower values (e.g., 1.1) = more sensitive, detects softer beats
+        const BEAT_THRESHOLD = 1.3;
 
         // UI elements
         const fileInput = document.getElementById('fileInput');
@@ -251,8 +258,8 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
         // Audio analysis state
         let beatDetector = {
             history: [],
-            threshold: 1.3,
-            lastBeat: 0
+            lastBeat: 0,
+            beatTimes: []
         };
 
         // Initialize canvas size
@@ -280,6 +287,9 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
                 // Create audio element
                 if (audioElement) {
                     audioElement.pause();
+                    // Clean up old event listeners
+                    audioElement.removeEventListener('timeupdate', updateTimeDisplay);
+                    audioElement.removeEventListener('loadedmetadata', updateTimeDisplay);
                     audioElement.src = '';
                 }
 
@@ -306,7 +316,7 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
             } catch (error) {
                 vscode.postMessage({
                     type: 'error',
-                    message: 'Failed to load audio file: ' + error.message
+                    message: 'Failed to load audio file.'
                 });
             }
         });
@@ -339,6 +349,14 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
             if (animationId) {
                 cancelAnimationFrame(animationId);
             }
+        });
+
+        // Reactive theme toggle
+        reactiveToggle.addEventListener('change', () => {
+            vscode.postMessage({
+                type: 'reactiveToggle',
+                enabled: reactiveToggle.checked
+            });
         });
 
         // Create mel filterbank
@@ -424,8 +442,8 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
                     // Add new line to spectrogram (rolling visualization)
                     spectrogramData.push(Array.from(melSpectrum));
 
-                    // Keep only enough lines to fill the canvas
-                    const maxLines = canvas.width;
+                    // Keep only enough lines to fill the canvas, with an absolute maximum for safety
+                    const maxLines = Math.min(canvas.width, 2000); // Cap at 2000 lines max
                     if (spectrogramData.length > maxLines) {
                         spectrogramData.shift();
                     }
@@ -500,7 +518,7 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
             }
 
             const avgEnergy = beatDetector.history.reduce((a, b) => a + b, 0) / beatDetector.history.length;
-            const isBeat = energy > avgEnergy * beatDetector.threshold;
+            const isBeat = energy > avgEnergy * BEAT_THRESHOLD;
 
             // Calculate brightness (high frequency content)
             const highFreqStart = Math.floor(frequencyData.length * 0.6);
@@ -517,7 +535,7 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
                 weightedSum += i * melSpectrum[i];
                 sum += melSpectrum[i];
             }
-            const spectralCentroid = sum > 0 ? weightedSum / sum / melSpectrum.length : 0;
+            const spectralCentroid = sum > 0 ? weightedSum / sum / melSpectrum.length : 0.5;
 
             // Dominant frequency bin
             let maxBin = 0;
@@ -544,12 +562,24 @@ export class AudioPlayerProvider implements vscode.WebviewViewProvider {
             document.getElementById('energy').textContent = (features.energy * 100).toFixed(1) + '%';
             document.getElementById('brightness').textContent = (features.brightness * 100).toFixed(1) + '%';
 
-            // Simple BPM estimation based on beat intervals
+            // Improved BPM estimation: average over last N beat intervals
             if (features.isBeat) {
                 const now = Date.now();
-                if (beatDetector.lastBeat > 0) {
-                    const interval = (now - beatDetector.lastBeat) / 1000;
-                    const bpm = Math.round(60 / interval);
+                // Keep only the last N beats (e.g., N=8)
+                const N = 8;
+                beatDetector.beatTimes.push(now);
+                if (beatDetector.beatTimes.length > N) {
+                    beatDetector.beatTimes.shift();
+                }
+                if (beatDetector.beatTimes.length >= 2) {
+                    // Calculate intervals between consecutive beats
+                    let intervals = [];
+                    for (let i = 1; i < beatDetector.beatTimes.length; i++) {
+                        intervals.push((beatDetector.beatTimes[i] - beatDetector.beatTimes[i - 1]) / 1000);
+                    }
+                    // Average interval
+                    const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+                    const bpm = Math.round(60 / avgInterval);
                     if (bpm >= 60 && bpm <= 200) {
                         document.getElementById('bpm').textContent = bpm;
                     }
