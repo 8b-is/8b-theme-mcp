@@ -61,7 +61,8 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "test": "npm run compile && node --test tests/*.cjs"
   },
   "devDependencies": {
     "@types/node": "^20.x",
@@ -73,7 +74,7 @@
     "typescript": "^5.5.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "tinycolor2": "^1.6.0",
     "wcag-contrast": "^3.0.0"
   }
